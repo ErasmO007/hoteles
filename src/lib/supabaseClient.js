@@ -12,7 +12,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('   VITE_SUPABASE_ANON_KEY=tu-clave');
   console.error('📂 El archivo .env debe estar en la raíz del proyecto');
   
-  // En desarrollo, mostrar un error visual
+  // logs de errores 
   if (import.meta.env.DEV) {
     throw new Error(
       '⚠️ Faltan variables de entorno de Supabase.\n\n' +
