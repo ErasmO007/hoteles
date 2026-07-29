@@ -126,32 +126,84 @@ class ReservationRepository extends BaseRepository {
   }
 
   // Método simplificado para obtener todas las reservaciones con detalles
-  async findAllWithDetails() {
-    try {
-      const { data, error } = await this.supabase
-        .from(this.tableName)
-        .select(`
-          *,
-          guests:guest_id (
-            full_name,
-            email,
-            phone
-          ),
-          rooms:room_id (
-            number,
-            type,
-            price
-          )
-        `)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error en findAllWithDetails:', error);
+  // =============================================
+// MÉTODO CORREGIDO - findAllWithDetails
+// =============================================
+
+async findAllWithDetails() {
+  try {
+    console.log('🔄 Cargando reservaciones con detalles...');
+    
+    // 1. Obtener TODAS las reservaciones (no solo activas)
+    const { data: reservations, error: resError } = await this.supabase
+      .from(this.tableName)
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (resError) {
+      console.error('❌ Error al obtener reservaciones:', resError);
+      throw resError;
+    }
+    
+    console.log(`📋 Encontradas ${reservations?.length || 0} reservaciones`);
+    
+    if (!reservations || reservations.length === 0) {
       return [];
     }
+
+    // 2. Obtener IDs únicos de huéspedes y habitaciones
+    const guestIds = [...new Set(reservations.map(r => r.guest_id).filter(id => id))];
+    const roomIds = [...new Set(reservations.map(r => r.room_id).filter(id => id))];
+
+    console.log(`👤 Huéspedes IDs: ${guestIds.length}, 🏨 Habitaciones IDs: ${roomIds.length}`);
+
+    // 3. Obtener datos de huéspedes
+    let guestsMap = {};
+    if (guestIds.length > 0) {
+      const { data: guests, error: guestsError } = await this.supabase
+        .from('guests')
+        .select('id, full_name, email, phone, nationality')
+        .in('id', guestIds);
+      
+      if (!guestsError && guests) {
+        guestsMap = guests.reduce((acc, g) => ({ ...acc, [g.id]: g }), {});
+        console.log(`✅ ${Object.keys(guestsMap).length} huéspedes cargados`);
+      } else {
+        console.warn('⚠️ Error al cargar huéspedes:', guestsError);
+      }
+    }
+
+    // 4. Obtener datos de habitaciones
+    let roomsMap = {};
+    if (roomIds.length > 0) {
+      const { data: rooms, error: roomsError } = await this.supabase
+        .from('rooms')
+        .select('id, number, type, price, status')
+        .in('id', roomIds);
+      
+      if (!roomsError && rooms) {
+        roomsMap = rooms.reduce((acc, r) => ({ ...acc, [r.id]: r }), {});
+        console.log(`✅ ${Object.keys(roomsMap).length} habitaciones cargadas`);
+      } else {
+        console.warn('⚠️ Error al cargar habitaciones:', roomsError);
+      }
+    }
+
+    // 5. Combinar datos
+    const result = reservations.map(reservation => ({
+      ...reservation,
+      guests: guestsMap[reservation.guest_id] || null,
+      rooms: roomsMap[reservation.room_id] || null,
+    }));
+
+    console.log(`✅ ${result.length} reservaciones procesadas correctamente`);
+    return result;
+
+  } catch (error) {
+    console.error('❌ Error en findAllWithDetails:', error);
+    return [];
   }
+}
 }
 
 export default ReservationRepository;
