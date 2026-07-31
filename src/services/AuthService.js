@@ -20,29 +20,53 @@ class AuthService {
   }
 
   async login(email, password) {
-    const { data, error } = await this.supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error } = await this.supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) throw error;
-    return data;
+      if (error) {
+        const message = error.message || 'Error al iniciar sesión';
+        if (message.includes('Bad Request') || message.includes('Invalid login')) {
+          throw new Error('Credenciales inválidas o la autenticación no está configurada correctamente en Supabase.');
+        }
+        throw new Error(message);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('AuthService.login error:', error);
+      throw error;
+    }
   }
 
   async register(email, password, userData) {
-    const { data, error } = await this.supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: userData.full_name,
-          role: userData.role || 'receptionist',
+    try {
+      const { data, error } = await this.supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: userData.full_name,
+            role: userData.role || 'receptionist',
+          },
         },
-      },
-    });
+      });
 
-    if (error) throw error;
-    return data;
+      if (error) {
+        const message = error.message || 'Error al registrar el usuario';
+        if (message.includes('Internal Server Error') || message.includes('retry')) {
+          throw new Error('No se pudo crear la cuenta. Revisa la configuración de Auth en Supabase o desactiva la confirmación por correo.');
+        }
+        throw new Error(message);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('AuthService.register error:', error);
+      throw error;
+    }
   }
 
   async logout() {

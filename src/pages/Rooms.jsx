@@ -5,14 +5,20 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Modal from '../components/common/Modal';
+import { formatCurrency, getStatusLabel, filterRooms } from '../utils/hotelUtils';
+import { useToast } from '../contexts/ToastContext';
 
 const Rooms = () => {
   const { user } = useAuth();
+  const { addToast } = useToast();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState(null);
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [formData, setFormData] = useState({
     number: '',
     type: 'single',
@@ -96,6 +102,7 @@ const Rooms = () => {
       await loadRooms();
       setIsModalOpen(false);
       resetForm();
+      addToast(editingRoom ? 'Habitación actualizada correctamente' : 'Habitación creada correctamente', 'success');
       
     } catch (error) {
       console.error('Error saving room:', error);
@@ -109,6 +116,7 @@ const Rooms = () => {
     try {
       await roomRepo.delete(id);
       await loadRooms();
+      addToast('Habitación eliminada correctamente', 'info');
     } catch (error) {
       console.error('Error deleting room:', error);
       setError('Error al eliminar la habitación: ' + error.message);
@@ -162,15 +170,11 @@ const Rooms = () => {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const getStatusLabel = (status) => {
-    const labels = {
-      available: 'Disponible',
-      occupied: 'Ocupada',
-      maintenance: 'Mantenimiento',
-      cleaned: 'Limpia',
-      reserved: 'Reservada',
-    };
-    return labels[status] || status;
+  const filteredRooms = filterRooms(rooms, { searchTerm, statusFilter, typeFilter });
+  const occupancySummary = {
+    available: rooms.filter((room) => room.status === 'available').length,
+    occupied: rooms.filter((room) => room.status === 'occupied').length,
+    maintenance: rooms.filter((room) => room.status === 'maintenance').length,
   };
 
   // Si no hay usuario autenticado, mostrar mensaje
@@ -187,11 +191,78 @@ const Rooms = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-800">Habitaciones</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Habitaciones</h1>
+          <p className="text-gray-500">Control rápido de disponibilidad y estado de cada habitación</p>
+        </div>
         <Button onClick={handleCreate}>
           + Nueva Habitación
         </Button>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="rounded-xl border border-green-100 bg-green-50 p-4">
+          <p className="text-sm text-green-700">Disponibles</p>
+          <p className="text-2xl font-semibold text-green-800">{occupancySummary.available}</p>
+        </div>
+        <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+          <p className="text-sm text-blue-700">Ocupadas</p>
+          <p className="text-2xl font-semibold text-blue-800">{occupancySummary.occupied}</p>
+        </div>
+        <div className="rounded-xl border border-yellow-100 bg-yellow-50 p-4">
+          <p className="text-sm text-yellow-700">En mantenimiento</p>
+          <p className="text-2xl font-semibold text-yellow-800">{occupancySummary.maintenance}</p>
+        </div>
+      </div>
+
+      <Card className="border border-gray-100">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1">
+              <Input
+                placeholder="Buscar por número, tipo o estado"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            >
+              <option value="all">Todos los estados</option>
+              <option value="available">Disponible</option>
+              <option value="occupied">Ocupada</option>
+              <option value="maintenance">Mantenimiento</option>
+              <option value="cleaned">Limpia</option>
+              <option value="reserved">Reservada</option>
+            </select>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            >
+              <option value="all">Todos los tipos</option>
+              <option value="single">Individual</option>
+              <option value="double">Doble</option>
+              <option value="suite">Suite</option>
+              <option value="family">Familiar</option>
+            </select>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {['all', 'available', 'occupied', 'maintenance'].map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setStatusFilter(value)}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${statusFilter === value ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                {value === 'all' ? 'Todos' : value === 'available' ? 'Disponibles' : value === 'occupied' ? 'Ocupadas' : 'Mantenimiento'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Card>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
@@ -204,8 +275,8 @@ const Rooms = () => {
           Array.from({ length: 6 }).map((_, i) => (
             <Card key={i} loading={true} />
           ))
-        ) : rooms.length > 0 ? (
-          rooms.map((room) => (
+        ) : filteredRooms.length > 0 ? (
+          filteredRooms.map((room) => (
             <Card
               key={room.id}
               title={`Habitación ${room.number}`}
@@ -229,7 +300,7 @@ const Rooms = () => {
                   <span className="font-medium">Capacidad:</span> {room.capacity} personas
                 </p>
                 <p className="text-sm text-gray-600">
-                  <span className="font-medium">Precio:</span> ${room.price}
+                  <span className="font-medium">Precio:</span> {formatCurrency(room.price)}
                 </p>
                 {room.floor && (
                   <p className="text-sm text-gray-600">
@@ -246,7 +317,7 @@ const Rooms = () => {
           ))
         ) : (
           <div className="col-span-full text-center py-12">
-            <p className="text-gray-500">No hay habitaciones registradas</p>
+            <p className="text-gray-500">No hay habitaciones que coincidan con los filtros</p>
             <button 
               onClick={handleCreate}
               className="mt-4 text-blue-600 hover:text-blue-800 font-medium"

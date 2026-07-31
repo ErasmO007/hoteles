@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 // Verificar que las variables existan
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 // Mensaje de error más descriptivo
 if (!supabaseUrl || !supabaseAnonKey) {
@@ -11,8 +12,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('   VITE_SUPABASE_URL=tu-url');
   console.error('   VITE_SUPABASE_ANON_KEY=tu-clave');
   console.error('📂 El archivo .env debe estar en la raíz del proyecto');
-  
-  // logs de errores 
+
   if (import.meta.env.DEV) {
     throw new Error(
       '⚠️ Faltan variables de entorno de Supabase.\n\n' +
@@ -24,6 +24,20 @@ if (!supabaseUrl || !supabaseAnonKey) {
   }
 }
 
+const createBaseClient = (key, options = {}) => createClient(supabaseUrl, key, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    storageKey: 'dash-hotel-auth',
+    ...options.auth,
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
+});
+
 // Clase Singleton para la conexión a Supabase
 class SupabaseClient {
   static instance = null;
@@ -34,19 +48,16 @@ class SupabaseClient {
     }
 
     console.log('🔌 Conectando a Supabase...');
-    
-    this.client = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        storageKey: 'dash-hotel-auth',
-      },
-      realtime: {
-        params: {
-          eventsPerSecond: 10,
-        },
-      },
-    });
+
+    this.client = createBaseClient(supabaseAnonKey);
+    this.adminClient = serviceRoleKey
+      ? createBaseClient(serviceRoleKey, {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+          },
+        })
+      : null;
 
     console.log('✅ Supabase conectado correctamente');
     SupabaseClient.instance = this;
@@ -56,6 +67,10 @@ class SupabaseClient {
     return this.client;
   }
 
+  getAdminClient() {
+    return this.adminClient;
+  }
+
   static getInstance() {
     if (!SupabaseClient.instance) {
       SupabaseClient.instance = new SupabaseClient();
@@ -63,5 +78,15 @@ class SupabaseClient {
     return SupabaseClient.instance;
   }
 }
+
+export const createSupabaseAdminClient = () => {
+  if (!serviceRoleKey) return null;
+  return createBaseClient(serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+};
 
 export default SupabaseClient;

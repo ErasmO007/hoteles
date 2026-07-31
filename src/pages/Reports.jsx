@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import ReportService from '../services/ReportService';
+import RoomRepository from '../repositories/RoomRepository';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
+import { buildOccupancyCalendar, getStatusLabel } from '../utils/hotelUtils';
 
 const Reports = () => {
   const [loading, setLoading] = useState(false);
@@ -10,6 +12,9 @@ const Reports = () => {
   const [revenueData, setRevenueData] = useState(null);
   const [topGuests, setTopGuests] = useState([]);
   const [roomPerformance, setRoomPerformance] = useState([]);
+  const [roomStatuses, setRoomStatuses] = useState([]);
+  const [calendarView, setCalendarView] = useState([]);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [dateRange, setDateRange] = useState({
     startDate: new Date(new Date().setDate(1)).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
@@ -24,12 +29,13 @@ const Reports = () => {
   const loadReports = async () => {
     setLoading(true);
     try {
-      await Promise.all([
+      const [occupancyReport, revenueReport, topGuestsData, roomPerformanceData] = await Promise.all([
         loadOccupancyReport(),
         loadRevenueReport(),
         loadTopGuests(),
         loadRoomPerformance(),
       ]);
+      await loadOccupancyCalendar(occupancyReport, roomPerformanceData);
     } catch (error) {
       console.error('Error loading reports:', error);
     } finally {
@@ -43,6 +49,7 @@ const Reports = () => {
       dateRange.endDate
     );
     setOccupancyData(data);
+    return data;
   };
 
   const loadRevenueReport = async () => {
@@ -51,16 +58,52 @@ const Reports = () => {
       dateRange.endDate
     );
     setRevenueData(data);
+    return data;
   };
 
   const loadTopGuests = async () => {
     const data = await reportService.getTopGuests(10);
     setTopGuests(data);
+    return data;
   };
 
   const loadRoomPerformance = async () => {
     const data = await reportService.getRoomPerformance();
     setRoomPerformance(data);
+    return data;
+  };
+
+  const loadRoomStatuses = async () => {
+    const roomRepo = new RoomRepository();
+    const data = await roomRepo.findAll();
+    setRoomStatuses(data || []);
+    return data || [];
+  };
+
+  const loadOccupancyCalendar = async (occupancyReport = occupancyData, roomPerformanceData = roomPerformance) => {
+    const selectedMonth = new Date(calendarMonth);
+    const year = selectedMonth.getFullYear();
+    const month = selectedMonth.getMonth();
+
+    const calendar = buildOccupancyCalendar({
+      year,
+      month,
+      totalRooms: roomPerformanceData?.length || 1,
+      occupancyData: occupancyReport || {},
+    });
+    setCalendarView(calendar);
+  };
+
+  const goToPreviousMonth = () => {
+    const nextMonth = new Date(calendarMonth);
+    nextMonth.setMonth(nextMonth.getMonth() - 1);
+    setCalendarMonth(nextMonth);
+  };
+
+  const goToNextMonth = () => {
+    const nextMonth = new Date(calendarMonth);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    setCalendarMonth(nextMonth);
   };
 
   const handleDateChange = async () => {
@@ -109,7 +152,7 @@ const Reports = () => {
       </Card>
 
       {/* Estadísticas rápidas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <p className="text-sm text-gray-500">Ocupación Promedio</p>
           <p className="text-2xl font-bold text-gray-800">
@@ -168,6 +211,70 @@ const Reports = () => {
         )}
       </Card>
 
+      <Card title="Calendario de ocupación" className="border border-gray-100">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-gray-700">
+                {calendarMonth.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
+              </p>
+              <p className="text-xs text-gray-500">Vista mensual para controlar la ocupación del hotel</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" onClick={goToPreviousMonth}>←</Button>
+              <Button variant="secondary" size="sm" onClick={goToNextMonth}>→</Button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+            <span className="rounded-full bg-blue-50 px-3 py-1">● Ocupado</span>
+            <span className="rounded-full bg-white px-3 py-1 border border-gray-200">● Libre</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-7">
+            {calendarView.map((day) => (
+              <div
+                key={day.date}
+                className={`min-h-[84px] rounded-xl border p-2 text-sm shadow-sm ${day.occupancyRate >= 50 ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-white'}`}
+              >
+                <p className="font-semibold text-gray-700">{day.label}</p>
+                <p className="mt-2 text-xs text-gray-500">{day.occupancyRate}%</p>
+                <p className="text-[11px] text-gray-400">{day.status === 'occupied' ? 'Ocupado' : 'Libre'}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      <Card title="Estado por habitación" className="border border-gray-100">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {roomStatuses.length > 0 ? roomStatuses.map((room) => {
+            const statusClasses = room.status === 'occupied'
+              ? 'border-red-200 bg-red-50'
+              : room.status === 'available'
+                ? 'border-green-200 bg-green-50'
+                : 'border-yellow-200 bg-yellow-50';
+
+            return (
+              <div key={room.id} className={`rounded-xl border p-3 ${statusClasses}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">Hab. {room.number}</p>
+                    <p className="text-xs text-gray-500 capitalize">{room.type}</p>
+                  </div>
+                  <span className="rounded-full bg-white/80 px-2 py-1 text-[11px] font-medium text-gray-700">
+                    {getStatusLabel(room.status)}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-gray-600">${room.price}</p>
+              </div>
+            );
+          }) : (
+            <p className="text-sm text-gray-500">No hay estados de habitaciones disponibles</p>
+          )}
+        </div>
+      </Card>
+
       {/* Top Huéspedes */}
       <Card title="Top Huéspedes" className="border border-gray-100">
         {loading ? (
@@ -215,6 +322,7 @@ const Reports = () => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reservas</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ocupación</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ingresos</th>
                 </tr>
               </thead>
@@ -232,6 +340,9 @@ const Reports = () => {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                       {room.bookings}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                      {room.occupancyRate}%
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-green-600">
                       ${room.totalRevenue.toLocaleString()}

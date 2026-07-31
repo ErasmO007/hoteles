@@ -9,11 +9,15 @@ import RoomRepository from '../repositories/RoomRepository';
 import ReservationRepository from '../repositories/ReservationRepository';
 import GuestRepository from '../repositories/GuestRepository';
 import PaymentRepository from '../repositories/PaymentRepository';
+import { formatCurrency, buildDailyAlerts, buildOccupancyCalendar } from '../utils/hotelUtils';
 import { 
   HomeIcon, 
   UserGroupIcon, 
   CalendarIcon, 
   CurrencyDollarIcon,
+  SparklesIcon,
+  BellAlertIcon,
+  ArrowTrendingUpIcon,
 } from '@heroicons/react/24/outline';
 
 const Dashboard = () => {
@@ -30,6 +34,9 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [recentGuests, setRecentGuests] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [calendarView, setCalendarView] = useState([]);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
   
   // Estados para los modales
   const [showCheckInModal, setShowCheckInModal] = useState(false);
@@ -80,6 +87,21 @@ const Dashboard = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    const selectedMonth = new Date(calendarMonth);
+    const year = selectedMonth.getFullYear();
+    const month = selectedMonth.getMonth();
+
+    const nextCalendar = buildOccupancyCalendar({
+      reservations: activeReservationsList,
+      year,
+      month,
+      totalRooms: stats.totalRooms || 1,
+    });
+
+    setCalendarView(nextCalendar);
+  }, [activeReservationsList, calendarMonth, stats.totalRooms]);
+
   const loadDashboardData = async () => {
     try {
       const [roomStats, activeReservations, recentGuests, revenueData] = await Promise.all([
@@ -89,7 +111,7 @@ const Dashboard = () => {
         getRevenueData(),
       ]);
 
-      setStats({
+      const nextStats = {
         totalRooms: roomStats?.total || 0,
         availableRooms: roomStats?.available || 0,
         occupiedRooms: roomStats?.occupied || 0,
@@ -97,8 +119,11 @@ const Dashboard = () => {
         activeReservations: activeReservations?.length || 0,
         totalGuests: recentGuests?.length || 0,
         revenue: revenueData?.total || 0,
-      });
+      };
+
+      setStats(nextStats);
       setRecentGuests(recentGuests || []);
+      setNotifications(buildNotifications({ stats: nextStats, activeReservations: activeReservations || [] }));
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -350,6 +375,27 @@ const Dashboard = () => {
   const goToRooms = () => navigate('/rooms');
   const goToReports = () => navigate('/reports');
 
+  const goToPreviousMonth = () => {
+    const nextMonth = new Date(calendarMonth);
+    nextMonth.setMonth(nextMonth.getMonth() - 1);
+    setCalendarMonth(nextMonth);
+  };
+
+  const goToNextMonth = () => {
+    const nextMonth = new Date(calendarMonth);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    setCalendarMonth(nextMonth);
+  };
+
+  const buildNotifications = ({ stats: currentStats, activeReservations }) => {
+    return buildDailyAlerts({
+      occupancyRate: currentStats.occupancyRate,
+      activeReservations: activeReservations || [],
+      availableRooms: currentStats.availableRooms,
+      totalRooms: currentStats.totalRooms,
+    });
+  };
+
   const statCards = [
     {
       title: 'Ocupación',
@@ -380,7 +426,7 @@ const Dashboard = () => {
     },
     {
       title: 'Ingresos',
-      value: `$${stats.revenue.toLocaleString()}`,
+      value: formatCurrency(stats.revenue),
       subtitle: 'este mes',
       icon: CurrencyDollarIcon,
       color: 'from-yellow-500 to-yellow-600',
@@ -441,6 +487,115 @@ const Dashboard = () => {
             </div>
           </div>
         ))}
+      </div>
+
+      <Card title="Panel ejecutivo" className="border border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-full bg-white p-2 shadow-sm">
+                <SparklesIcon className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-800">Resumen del día</p>
+                <p className="text-sm text-gray-600">Tu hotel está funcionando con una ocupación del {Math.round(stats.occupancyRate)}%.</p>
+              </div>
+            </div>
+            <div className="rounded-2xl bg-white/80 px-4 py-3 text-sm text-gray-700 shadow-sm">
+              <p className="font-semibold text-gray-800">{stats.occupiedRooms} ocupadas</p>
+              <p>{stats.availableRooms} disponibles</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/70 bg-white/70 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <BellAlertIcon className="h-5 w-5 text-blue-600" />
+              <p className="text-sm font-semibold text-gray-800">Alertas</p>
+            </div>
+            <div className="space-y-2">
+              {notifications.map((item, index) => (
+                <div key={index} className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600">
+                  <p className="font-medium text-gray-800">{item.title}</p>
+                  <p>{item.message}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card title="Indicadores clave" className="border border-gray-100">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl bg-green-50 p-4">
+            <div className="flex items-center gap-2 text-green-700">
+              <ArrowTrendingUpIcon className="h-5 w-5" />
+              <p className="text-sm font-semibold">Ingresos del mes</p>
+            </div>
+            <p className="mt-2 text-2xl font-bold text-gray-800">{formatCurrency(stats.revenue)}</p>
+          </div>
+          <div className="rounded-2xl bg-blue-50 p-4">
+            <div className="flex items-center gap-2 text-blue-700">
+              <CalendarIcon className="h-5 w-5" />
+              <p className="text-sm font-semibold">Llegadas activas</p>
+            </div>
+            <p className="mt-2 text-2xl font-bold text-gray-800">{stats.activeReservations}</p>
+          </div>
+          <div className="rounded-2xl bg-purple-50 p-4">
+            <div className="flex items-center gap-2 text-purple-700">
+              <UserGroupIcon className="h-5 w-5" />
+              <p className="text-sm font-semibold">Huéspedes recientes</p>
+            </div>
+            <p className="mt-2 text-2xl font-bold text-gray-800">{stats.totalGuests}</p>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <Card title="Calendario mensual" className="border border-gray-100">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-700">{calendarMonth.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}</p>
+                <p className="text-xs text-gray-500">Vista rápida de ocupación por día</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm" onClick={goToPreviousMonth}>←</Button>
+                <Button variant="secondary" size="sm" onClick={goToNextMonth}>→</Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-7">
+              {calendarView.map((day) => (
+                <div
+                  key={day.date}
+                  className={`min-h-[82px] rounded-xl border p-2 text-sm shadow-sm ${day.occupancyRate >= 50 ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-white'}`}
+                >
+                  <p className="font-semibold text-gray-700">{day.label}</p>
+                  <p className="mt-2 text-xs text-gray-500">{day.occupancyRate}%</p>
+                  <p className="text-[11px] text-gray-400">{day.status === 'occupied' ? 'Ocupado' : 'Libre'}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+
+        <Card title="Alertas del día" className="border border-gray-100">
+          <div className="space-y-3">
+            {notifications.map((item, index) => {
+              const toneClasses = {
+                success: 'border-green-200 bg-green-50 text-green-700',
+                warning: 'border-yellow-200 bg-yellow-50 text-yellow-700',
+                info: 'border-blue-200 bg-blue-50 text-blue-700',
+              };
+
+              return (
+                <div key={index} className={`rounded-2xl border p-3 ${toneClasses[item.type] || toneClasses.info}`}>
+                  <p className="text-sm font-semibold">{item.title}</p>
+                  <p className="mt-1 text-sm">{item.message}</p>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
       </div>
 
       {/* Gráficos y listas */}

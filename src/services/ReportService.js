@@ -118,36 +118,51 @@ class ReportService {
   }
 
   async getRoomPerformance() {
-    const { data, error } = await this.supabase
-      .from('reservations')
-      .select(`
-        room_id,
-        rooms:room_id (number, type, price),
-        total_amount,
-        status
-      `)
-      .eq('status', 'completed');
-    
-    if (error) throw error;
-    
-    const roomStats = {};
-    data.forEach(item => {
-      const roomId = item.room_id;
-      if (!roomStats[roomId]) {
-        roomStats[roomId] = {
-          number: item.rooms.number,
-          type: item.rooms.type,
-          price: item.rooms.price,
-          totalRevenue: 0,
-          bookings: 0,
-        };
-      }
-      roomStats[roomId].totalRevenue += item.total_amount;
-      roomStats[roomId].bookings++;
+    const [roomsResult, reservationsResult] = await Promise.all([
+      this.roomRepo.findAll(),
+      this.supabase
+        .from('reservations')
+        .select(`
+          room_id,
+          total_amount,
+          status,
+          check_in,
+          check_out
+        `)
+        .eq('status', 'completed')
+    ]);
+
+    if (roomsResult.error) throw roomsResult.error;
+    if (reservationsResult.error) throw reservationsResult.error;
+
+    const startDate = new Date();
+    startDate.setDate(1);
+    const endDate = new Date();
+    const totalDays = Math.max(1, Math.round((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1);
+
+    const roomStats = (roomsResult.data || []).map((room) => {
+      const roomReservations = (reservationsResult.data || []).filter((reservation) => reservation.room_id === room.id);
+      const occupiedNights = roomReservations.reduce((sum, reservation) => {
+        if (!reservation.check_in || !reservation.check_out) return sum;
+        const checkIn = new Date(reservation.check_in);
+        const checkOut = new Date(reservation.check_out);
+        const nights = Math.max(1, Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24)));
+        return sum + nights;
+      }, 0);
+
+      return {
+        id: room.id,
+        number: room.number,
+        type: room.type,
+        price: room.price,
+        totalRevenue: roomReservations.reduce((sum, reservation) => sum + Number(reservation.total_amount || 0), 0),
+        bookings: roomReservations.length,
+        occupancyRate: Number(((occupiedNights / totalDays) * 100).toFixed(2)),
+        occupiedNights,
+      };
     });
-    
-    return Object.values(roomStats)
-      .sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+    return roomStats.sort((a, b) => b.totalRevenue - a.totalRevenue);
   }
 }
 

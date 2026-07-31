@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (err) {
         console.error('Error checking auth:', err);
-        setError(err.message);
+        setError(err.message || 'No se pudo verificar la sesión');
       } finally {
         setLoading(false);
       }
@@ -28,22 +28,26 @@ export const AuthProvider = ({ children }) => {
 
     checkUser();
 
-    // Suscripción a cambios de autenticación
-    const { data: { subscription } } = authService.supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session) {
-          const userData = await authService.getCurrentUser();
-          setUser(userData);
-        } else {
-          setUser(null);
+    try {
+      const { data: { subscription } } = authService.supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (session) {
+            const userData = await authService.getCurrentUser();
+            setUser(userData);
+          } else {
+            setUser(null);
+          }
+          setLoading(false);
         }
-        setLoading(false);
-      }
-    );
+      );
 
-    return () => {
-      subscription.unsubscribe();
-    };
+      return () => {
+        subscription.unsubscribe();
+      };
+    } catch (err) {
+      console.error('Auth subscription error:', err);
+      return undefined;
+    }
   }, []);
 
   const login = async (email, password) => {

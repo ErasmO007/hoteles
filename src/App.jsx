@@ -8,6 +8,8 @@ import Rooms from './pages/Rooms';
 import Guests from './pages/Guests';
 import Reservations from './pages/Reservations';
 import Reports from './pages/Reports';
+import AdminUsers from './pages/AdminUsers';
+import { ToastProvider } from './contexts/ToastContext';
 
 // Componente de protección de rutas
 const ProtectedRoute = ({ children, requiredRole }) => {
@@ -63,6 +65,14 @@ const AppRoutes = () => {
           <Route path="guests" element={<Guests />} />
           <Route path="reservations" element={<Reservations />} />
           <Route path="reports" element={<Reports />} />
+          <Route
+            path="admin/users"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminUsers />
+              </ProtectedRoute>
+            }
+          />
         </Route>
       </Routes>
     </Router>
@@ -72,7 +82,9 @@ const AppRoutes = () => {
 const App = () => {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <ToastProvider>
+        <AppRoutes />
+      </ToastProvider>
     </AuthProvider>
   );
 };

@@ -7,7 +7,7 @@ const Input = forwardRef(({
   required = false,
   ...props 
 }, ref) => {
-  const baseStyles = 'w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 transition-colors duration-200';
+  const baseStyles = 'w-full rounded-lg border-gray-300 px-3 py-2.5 shadow-sm transition-colors duration-200 focus:border-blue-500 focus:ring-blue-500 sm:px-4';
   const errorStyles = 'border-red-500 focus:border-red-500 focus:ring-red-500';
   
   return (

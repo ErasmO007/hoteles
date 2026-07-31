@@ -7,9 +7,12 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Modal from '../components/common/Modal';
+import { formatCurrency, getStatusLabel, filterReservations } from '../utils/hotelUtils';
+import { useToast } from '../contexts/ToastContext';
 
 const Reservations = () => {
   const { user } = useAuth();
+  const { addToast } = useToast();
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -18,6 +21,8 @@ const Reservations = () => {
   const [rooms, setRooms] = useState([]);
   const [selectedRoomPrice, setSelectedRoomPrice] = useState(0);
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [formData, setFormData] = useState({
     guest_id: '',
     room_id: '',
@@ -172,6 +177,7 @@ const Reservations = () => {
       await loadReservations();
       setIsModalOpen(false);
       resetForm();
+      addToast(editingReservation ? 'Reservación actualizada correctamente' : 'Reservación creada correctamente', 'success');
       
     } catch (error) {
       console.error('Error saving reservation:', error);
@@ -185,6 +191,7 @@ const Reservations = () => {
     try {
       await reservationRepo.updateStatus(id, 'cancelled');
       await loadReservations();
+      addToast('Reservación cancelada correctamente', 'info');
     } catch (error) {
       console.error('Error cancelling reservation:', error);
       setError('Error al cancelar la reservación');
@@ -222,27 +229,77 @@ const Reservations = () => {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const getStatusLabel = (status) => {
-    const labels = {
-      active: 'Activa',
-      completed: 'Completada',
-      cancelled: 'Cancelada',
-      no_show: 'No Show',
-      pending: 'Pendiente',
-    };
-    return labels[status] || status;
-  };
-
+  const filteredReservations = filterReservations(reservations, { searchTerm, statusFilter });
   const totalAmount = calculateTotal();
+  const summary = {
+    active: reservations.filter((item) => item.status === 'active').length,
+    completed: reservations.filter((item) => item.status === 'completed').length,
+    cancelled: reservations.filter((item) => item.status === 'cancelled').length,
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-800">Reservaciones</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Reservaciones</h1>
+          <p className="text-gray-500">Consulta rápida del estado de las reservas y ocupación del hotel</p>
+        </div>
         <Button onClick={handleCreate}>
           + Nueva Reservación
         </Button>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="rounded-xl border border-green-100 bg-green-50 p-4">
+          <p className="text-sm text-green-700">Activas</p>
+          <p className="text-2xl font-semibold text-green-800">{summary.active}</p>
+        </div>
+        <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+          <p className="text-sm text-blue-700">Completadas</p>
+          <p className="text-2xl font-semibold text-blue-800">{summary.completed}</p>
+        </div>
+        <div className="rounded-xl border border-red-100 bg-red-50 p-4">
+          <p className="text-sm text-red-700">Canceladas</p>
+          <p className="text-2xl font-semibold text-red-800">{summary.cancelled}</p>
+        </div>
+      </div>
+
+      <Card className="border border-gray-100">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1">
+              <Input
+                placeholder="Buscar por huésped o habitación"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            >
+              <option value="all">Todos los estados</option>
+              <option value="active">Activa</option>
+              <option value="completed">Completada</option>
+              <option value="cancelled">Cancelada</option>
+              <option value="pending">Pendiente</option>
+            </select>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {['all', 'active', 'completed', 'cancelled'].map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setStatusFilter(value)}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${statusFilter === value ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                {value === 'all' ? 'Todos' : value === 'active' ? 'Activas' : value === 'completed' ? 'Completadas' : 'Canceladas'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Card>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
@@ -287,8 +344,8 @@ const Reservations = () => {
                     </div>
                   </td>
                 </tr>
-              ) : reservations.length > 0 ? (
-                reservations.map((reservation) => (
+              ) : filteredReservations.length > 0 ? (
+                filteredReservations.map((reservation) => (
                   <tr key={reservation.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
@@ -318,7 +375,7 @@ const Reservations = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ${reservation.total_amount}
+                      {formatCurrency(reservation.total_amount)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
@@ -338,7 +395,7 @@ const Reservations = () => {
               ) : (
                 <tr>
                   <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
-                    No hay reservaciones activas
+                    No hay reservaciones que coincidan con los filtros
                   </td>
                 </tr>
               )}
