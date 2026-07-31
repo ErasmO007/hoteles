@@ -56,18 +56,18 @@ const Modal = ({
         <div className="fixed inset-0 bg-gray-500/75 transition-opacity" onClick={handleOutsideClick}></div>
         <span className="hidden sm:inline-block sm:h-screen sm:align-middle">&#8203;</span>
 
-        <div ref={modalRef} className={`inline-block w-[calc(100%-1rem)] max-w-full transform overflow-hidden rounded-2xl bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full ${sizes[size]} sm:align-middle`}>
-          <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+        <div ref={modalRef} className={`inline-block w-[calc(100%-1rem)] max-w-full transform overflow-hidden rounded-2xl bg-[#fdf8f4] text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full ${sizes[size]} sm:align-middle`}>
+          <div className="bg-[#fdf8f4] px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
             <div className="flex items-start justify-between gap-2">
-              <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-              <button onClick={onClose} className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <h3 className="text-lg font-semibold text-[#2f1b1d]">{title}</h3>
+              <button onClick={onClose} className="rounded-md bg-transparent text-[#8a5c63] hover:text-[#7c3948] focus:outline-none focus:ring-2 focus:ring-[#9b4b5d]">
                 <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
             <div className="mt-4 max-h-[70vh] overflow-y-auto pr-1">{children}</div>
           </div>
           {actions && (
-            <div className="flex flex-col-reverse gap-2 bg-gray-50 px-4 py-3 sm:flex-row-reverse sm:px-6">
+            <div className="flex flex-col-reverse gap-2 bg-[#f5ebe3] px-4 py-3 sm:flex-row-reverse sm:px-6">
               {actions}
             </div>
           )}

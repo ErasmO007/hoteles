@@ -8,15 +8,15 @@ const Button = ({
   isLoading = false,
   ...props 
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
   
   const variants = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
-    secondary: 'bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-500',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
-    success: 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500',
-    warning: 'bg-yellow-600 text-white hover:bg-yellow-700 focus:ring-yellow-500',
-    outline: 'border-2 border-blue-600 text-blue-600 hover:bg-blue-50 focus:ring-blue-500',
+    primary: 'bg-gradient-to-r from-[#7c3948] to-[#9b4b5d] text-white hover:from-[#6d3140] hover:to-[#843a4b] focus:ring-[#9b4b5d]',
+    secondary: 'bg-[#f4e7df] text-[#6d3140] hover:bg-[#e8d6ca] focus:ring-[#8a5c63]',
+    danger: 'bg-gradient-to-r from-[#a44d5d] to-[#8b3b49] text-white hover:from-[#953f4f] hover:to-[#792d3c] focus:ring-[#a44d5d]',
+    success: 'bg-gradient-to-r from-[#6f5a4d] to-[#8c6f53] text-white hover:from-[#5e4c41] hover:to-[#78624d] focus:ring-[#8c6f53]',
+    warning: 'bg-[#c4884c] text-white hover:bg-[#b17637] focus:ring-[#c4884c]',
+    outline: 'border border-[#9b4b5d] text-[#7c3948] hover:bg-[#f8ede7] focus:ring-[#9b4b5d]',
   };
 
   const sizes = {

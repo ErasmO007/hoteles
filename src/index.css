@@ -3,29 +3,27 @@
 @tailwind utilities;
 
 @layer base {
-  /* Eliminar la línea problemática */
   html {
     @apply scroll-smooth;
   }
 
   body {
-    @apply min-h-screen bg-gray-50 text-gray-900 antialiased;
+    @apply min-h-screen bg-[#f6efe9] text-[#2f1b1d] antialiased;
   }
 
   #root {
     @apply min-h-screen;
   }
-  
-  /* Scrollbar personalizada */
+
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-gray-100 rounded-full;
+    @apply bg-[#efe0d7] rounded-full;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-gray-400 rounded-full hover:bg-gray-500 transition-colors;
+    @apply bg-[#9b4b5d] rounded-full hover:bg-[#7c3948] transition-colors;
   }
 }
 
@@ -33,27 +31,27 @@
   .card-hover {
     @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-1;
   }
-  
+
   .input-focus {
-    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+    @apply focus:outline-none focus:ring-2 focus:ring-[#9b4b5d] focus:border-transparent;
   }
-  
+
   .btn-primary {
-    @apply bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium px-4 py-2 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-sm hover:shadow-md;
+    @apply bg-gradient-to-r from-[#7c3948] to-[#9b4b5d] text-white font-medium px-4 py-2 rounded-xl hover:from-[#6d3140] hover:to-[#843a4b] transition-all duration-200 shadow-sm hover:shadow-md;
   }
-  
+
   .btn-secondary {
-    @apply bg-gray-100 text-gray-700 font-medium px-4 py-2 rounded-lg hover:bg-gray-200 transition-all duration-200;
+    @apply bg-[#f4e7df] text-[#6d3140] font-medium px-4 py-2 rounded-xl hover:bg-[#e8d6ca] transition-all duration-200;
   }
-  
+
   .btn-danger {
-    @apply bg-gradient-to-r from-red-600 to-red-700 text-white font-medium px-4 py-2 rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-sm hover:shadow-md;
+    @apply bg-gradient-to-r from-[#a44d5d] to-[#8b3b49] text-white font-medium px-4 py-2 rounded-xl hover:from-[#953f4f] hover:to-[#792d3c] transition-all duration-200 shadow-sm hover:shadow-md;
   }
-  
+
   .btn-success {
-    @apply bg-gradient-to-r from-green-600 to-green-700 text-white font-medium px-4 py-2 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-sm hover:shadow-md;
+    @apply bg-gradient-to-r from-[#6f5a4d] to-[#8c6f53] text-white font-medium px-4 py-2 rounded-xl hover:from-[#5e4c41] hover:to-[#78624d] transition-all duration-200 shadow-sm hover:shadow-md;
   }
-  
+
   .status-badge {
     @apply px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider;
   }
