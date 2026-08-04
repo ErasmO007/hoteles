@@ -25,7 +25,7 @@ export const getStatusLabel = (status, labels = {}) => {
   return finalLabels[status] || status || 'Sin estado';
 };
 
-export const buildDailyAlerts = ({ occupancyRate = 0, activeReservations = [], availableRooms = 0, totalRooms = 0 }) => {
+export const buildDailyAlerts = ({ occupancyRate = 0, activeReservations = [], availableRooms = 0, totalRooms = 0, pendingPayments = 0, pendingCleaningRooms = 0 }) => {
   const items = [];
 
   if (occupancyRate >= 75) {
@@ -40,6 +40,14 @@ export const buildDailyAlerts = ({ occupancyRate = 0, activeReservations = [], a
 
   if (totalRooms > 0 && availableRooms <= Math.ceil(totalRooms * 0.2)) {
     items.push({ type: 'info', title: 'Pocas habitaciones libres', message: `Solo quedan ${availableRooms} habitaciones disponibles.` });
+  }
+
+  if (pendingPayments > 0) {
+    items.push({ type: 'warning', title: 'Pagos pendientes', message: `Hay ${pendingPayments} pagos sin completar.` });
+  }
+
+  if (pendingCleaningRooms > 0) {
+    items.push({ type: 'info', title: 'Habitaciones por limpiar', message: `${pendingCleaningRooms} habitaciones requieren preparación para el próximo ingreso.` });
   }
 
   if (items.length === 0) {
@@ -111,6 +119,19 @@ export const buildRoomPerformanceSummary = ({ rooms = [], reservations = [], sta
       occupiedNights,
     };
   }).sort((a, b) => b.totalRevenue - a.totalRevenue);
+};
+
+export const buildPaymentSummary = (payments = []) => {
+  const completed = payments.filter((payment) => payment.status === 'completed').length;
+  const pending = payments.filter((payment) => payment.status === 'pending').length;
+  const total = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+
+  return {
+    total,
+    completed,
+    pending,
+    count: payments.length,
+  };
 };
 
 export const buildOccupancyCalendar = ({ reservations = [], year, month, totalRooms = 1, occupancyData = null }) => {

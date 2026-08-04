@@ -19,6 +19,7 @@ const Rooms = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [selectedRoomId, setSelectedRoomId] = useState(null);
   const [formData, setFormData] = useState({
     number: '',
     type: 'single',
@@ -159,6 +160,17 @@ const Rooms = () => {
     setError('');
   };
 
+  const handleStatusChange = async (roomId, newStatus) => {
+    try {
+      await roomRepo.updateRoomStatus(roomId, newStatus);
+      await loadRooms();
+      addToast(`Estado actualizado a ${getStatusLabel(newStatus)}`, 'success');
+    } catch (error) {
+      console.error('Error updating room status:', error);
+      setError('No se pudo actualizar el estado de la habitación');
+    }
+  };
+
   const getStatusColor = (status) => {
     const colors = {
       available: 'bg-green-100 text-green-800',
@@ -175,7 +187,10 @@ const Rooms = () => {
     available: rooms.filter((room) => room.status === 'available').length,
     occupied: rooms.filter((room) => room.status === 'occupied').length,
     maintenance: rooms.filter((room) => room.status === 'maintenance').length,
+    cleaned: rooms.filter((room) => room.status === 'cleaned').length,
   };
+
+  const selectedRoom = rooms.find((room) => room.id === selectedRoomId) || null;
 
   // Si no hay usuario autenticado, mostrar mensaje
   if (!user) {
@@ -200,7 +215,7 @@ const Rooms = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="rounded-xl border border-green-100 bg-green-50 p-4">
           <p className="text-sm text-green-700">Disponibles</p>
           <p className="text-2xl font-semibold text-green-800">{occupancySummary.available}</p>
@@ -212,6 +227,10 @@ const Rooms = () => {
         <div className="rounded-xl border border-yellow-100 bg-yellow-50 p-4">
           <p className="text-sm text-yellow-700">En mantenimiento</p>
           <p className="text-2xl font-semibold text-yellow-800">{occupancySummary.maintenance}</p>
+        </div>
+        <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+          <p className="text-sm text-gray-700">Limpias</p>
+          <p className="text-2xl font-semibold text-gray-800">{occupancySummary.cleaned}</p>
         </div>
       </div>
 
@@ -250,14 +269,14 @@ const Rooms = () => {
             </select>
           </div>
           <div className="flex flex-wrap gap-2">
-            {['all', 'available', 'occupied', 'maintenance'].map((value) => (
+            {['all', 'available', 'occupied', 'maintenance', 'cleaned'].map((value) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setStatusFilter(value)}
                 className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${statusFilter === value ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
-                {value === 'all' ? 'Todos' : value === 'available' ? 'Disponibles' : value === 'occupied' ? 'Ocupadas' : 'Mantenimiento'}
+                {value === 'all' ? 'Todos' : value === 'available' ? 'Disponibles' : value === 'occupied' ? 'Ocupadas' : value === 'maintenance' ? 'Mantenimiento' : 'Limpias'}
               </button>
             ))}
           </div>
@@ -282,7 +301,7 @@ const Rooms = () => {
               title={`Habitación ${room.number}`}
               className="border border-gray-100 hover:shadow-md transition-all"
               actions={
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="outline" onClick={() => handleEdit(room)}>
                     Editar
                   </Button>
@@ -293,9 +312,18 @@ const Rooms = () => {
               }
             >
               <div className="space-y-2">
-                <p className="text-sm text-gray-600">
-                  <span className="font-medium">Tipo:</span> {room.type}
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Tipo:</span> {room.type}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRoomId(room.id)}
+                    className="text-xs font-semibold text-blue-600"
+                  >
+                    Ver detalle
+                  </button>
+                </div>
                 <p className="text-sm text-gray-600">
                   <span className="font-medium">Capacidad:</span> {room.capacity} personas
                 </p>
@@ -327,6 +355,32 @@ const Rooms = () => {
           </div>
         )}
       </div>
+
+      {selectedRoom && (
+        <div className="rounded-2xl border border-gray-200 bg-[#fdf8f4] p-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800">Detalle de {selectedRoom.number}</h3>
+              <p className="text-sm text-gray-600">Estado actual: {getStatusLabel(selectedRoom.status)}</p>
+            </div>
+            <button type="button" onClick={() => setSelectedRoomId(null)} className="text-sm text-gray-500">Cerrar</button>
+          </div>
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg bg-white p-3">
+              <p className="text-xs uppercase text-gray-400">Tipo</p>
+              <p className="font-semibold text-gray-700">{selectedRoom.type}</p>
+            </div>
+            <div className="rounded-lg bg-white p-3">
+              <p className="text-xs uppercase text-gray-400">Precio</p>
+              <p className="font-semibold text-gray-700">{formatCurrency(selectedRoom.price)}</p>
+            </div>
+            <div className="rounded-lg bg-white p-3">
+              <p className="text-xs uppercase text-gray-400">Capacidad</p>
+              <p className="font-semibold text-gray-700">{selectedRoom.capacity} personas</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Modal
         isOpen={isModalOpen}

@@ -18,7 +18,10 @@ import {
   SparklesIcon,
   BellAlertIcon,
   ArrowTrendingUpIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line } from 'recharts';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -45,6 +48,9 @@ const Dashboard = () => {
   const [loadingAction, setLoadingAction] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [paymentSummary, setPaymentSummary] = useState({ total: 0, count: 0, byMethod: {} });
+  const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
+  const [pendingCleaningRooms, setPendingCleaningRooms] = useState(0);
 
   // Estados para los formularios
   const [checkInData, setCheckInData] = useState({
@@ -104,12 +110,19 @@ const Dashboard = () => {
 
   const loadDashboardData = async () => {
     try {
-      const [roomStats, activeReservations, recentGuests, revenueData] = await Promise.all([
+      const [roomStats, activeReservations, recentGuests, revenueData, roomsData, pendingPayments] = await Promise.all([
         roomRepo.getOccupancyStats(),
         reservationRepo.findActiveReservations(),
         guestRepo.findRecentGuests(5),
         getRevenueData(),
+        roomRepo.findAll(),
+        paymentRepo.findBy('status', 'pending'),
       ]);
+
+      const paymentSummaryData = await paymentRepo.getRevenueByDateRange(
+        new Date(new Date().setDate(1)).toISOString().split('T')[0],
+        new Date().toISOString().split('T')[0]
+      );
 
       const nextStats = {
         totalRooms: roomStats?.total || 0,
@@ -121,9 +134,14 @@ const Dashboard = () => {
         revenue: revenueData?.total || 0,
       };
 
+      const cleaningRooms = (roomsData || []).filter((room) => ['occupied', 'reserved'].includes(room.status)).length;
+
       setStats(nextStats);
       setRecentGuests(recentGuests || []);
-      setNotifications(buildNotifications({ stats: nextStats, activeReservations: activeReservations || [] }));
+      setPaymentSummary(paymentSummaryData || { total: 0, count: 0, byMethod: {} });
+      setPendingPaymentsCount((pendingPayments || []).length);
+      setPendingCleaningRooms(cleaningRooms);
+      setNotifications(buildNotifications({ stats: nextStats, activeReservations: activeReservations || [], pendingPayments: (pendingPayments || []).length, pendingCleaningRooms: cleaningRooms }));
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -387,14 +405,46 @@ const Dashboard = () => {
     setCalendarMonth(nextMonth);
   };
 
-  const buildNotifications = ({ stats: currentStats, activeReservations }) => {
+  const buildNotifications = ({ stats: currentStats, activeReservations, pendingPayments = 0, pendingCleaningRooms = 0 }) => {
     return buildDailyAlerts({
       occupancyRate: currentStats.occupancyRate,
       activeReservations: activeReservations || [],
       availableRooms: currentStats.availableRooms,
       totalRooms: currentStats.totalRooms,
+      pendingPayments,
+      pendingCleaningRooms,
     });
   };
+
+  const occupancyChartData = (calendarView.length ? calendarView : []).slice(-7).map((day) => ({
+    label: new Date(day.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }),
+    ocupacion: day.occupancyRate,
+  }));
+
+  const revenueChartData = (() => {
+    const grouped = {};
+    const today = new Date();
+
+    for (let index = 6; index >= 0; index -= 1) {
+      const currentDate = new Date(today);
+      currentDate.setDate(today.getDate() - index);
+      const key = currentDate.toISOString().split('T')[0];
+      grouped[key] = 0;
+    }
+
+    (paymentSummary.data || []).forEach((payment) => {
+      const date = new Date(payment.created_at || payment.payment_date);
+      const key = date.toISOString().split('T')[0];
+      if (grouped[key] !== undefined) {
+        grouped[key] += Number(payment.amount || 0);
+      }
+    });
+
+    return Object.entries(grouped).map(([date, amount]) => ({
+      label: new Date(date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }),
+      ingresos: amount,
+    }));
+  })();
 
   const statCards = [
     {
@@ -437,6 +487,168 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-2xl font-bold text-[#2f1b1d]">Dashboard</h1>
+        <p className="text-sm text-[#8a5c63]">Resumen operativo del hotel en tiempo real.</p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-[#ead8cc] bg-white p-4 shadow-sm">
+          <p className="text-sm text-[#8a5c63]">Ocupación</p>
+          <p className="mt-2 text-2xl font-semibold text-[#2f1b1d]">{stats.occupancyRate}%</p>
+          <p className="mt-1 text-xs text-[#9b4b5d]">{stats.occupiedRooms}/{stats.totalRooms} habitaciones ocupadas</p>
+        </div>
+        <div className="rounded-2xl border border-[#ead8cc] bg-white p-4 shadow-sm">
+          <p className="text-sm text-[#8a5c63]">Reservas activas</p>
+          <p className="mt-2 text-2xl font-semibold text-[#2f1b1d]">{stats.activeReservations}</p>
+          <p className="mt-1 text-xs text-[#9b4b5d]">En curso hoy</p>
+        </div>
+        <div className="rounded-2xl border border-[#ead8cc] bg-white p-4 shadow-sm">
+          <p className="text-sm text-[#8a5c63]">Ingresos del mes</p>
+          <p className="mt-2 text-2xl font-semibold text-[#2f1b1d]">{formatCurrency(stats.revenue)}</p>
+          <p className="mt-1 text-xs text-[#9b4b5d]">{paymentSummary.count} pagos registrados</p>
+        </div>
+        <div className="rounded-2xl border border-[#ead8cc] bg-white p-4 shadow-sm">
+          <p className="text-sm text-[#8a5c63]">Habitaciones libres</p>
+          <p className="mt-2 text-2xl font-semibold text-[#2f1b1d]">{stats.availableRooms}</p>
+          <p className="mt-1 text-xs text-[#9b4b5d]">Disponibles para asignar</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-[#ead8cc] bg-white p-4 shadow-sm">
+          <p className="text-sm text-[#8a5c63]">Pagos pendientes</p>
+          <p className="mt-2 text-2xl font-semibold text-[#2f1b1d]">{pendingPaymentsCount}</p>
+          <p className="mt-1 text-xs text-[#9b4b5d]">Vinculados a reservas</p>
+        </div>
+        <div className="rounded-2xl border border-[#ead8cc] bg-white p-4 shadow-sm">
+          <p className="text-sm text-[#8a5c63]">Por limpiar</p>
+          <p className="mt-2 text-2xl font-semibold text-[#2f1b1d]">{pendingCleaningRooms}</p>
+          <p className="mt-1 text-xs text-[#9b4b5d]">Habitaciones listas para turno</p>
+        </div>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <Card className="border border-[#ead8cc]">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-[#2f1b1d]">Estado del mes</h2>
+              <p className="text-sm text-[#8a5c63]">Tendencia de ocupación del calendario actual.</p>
+            </div>
+            <div className="rounded-full bg-[#f3e4db] px-3 py-1 text-xs font-medium text-[#9b4b5d]">{calendarMonth.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}</div>
+          </div>
+          <div className="mt-4 grid grid-cols-7 gap-2">
+            {calendarView.slice(0, 7).map((day) => (
+              <div key={day.date} className="rounded-lg border border-[#ead8cc] bg-[#fdf8f4] p-2 text-center">
+                <p className="text-[10px] uppercase text-[#8a5c63]">{day.label}</p>
+                <p className="mt-1 text-sm font-semibold text-[#2f1b1d]">{day.occupancyRate}%</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="border border-[#ead8cc]">
+          <h2 className="text-lg font-semibold text-[#2f1b1d]">Alertas rápidas</h2>
+          <div className="mt-4 space-y-3">
+            {notifications.slice(0, 4).map((item, index) => (
+              <div key={index} className="rounded-xl border border-[#ead8cc] bg-[#fdf8f4] p-3">
+                <div className="flex items-start gap-2">
+                  {item.type === 'warning' ? <ExclamationTriangleIcon className="mt-0.5 h-5 w-5 text-amber-500" /> : <CheckCircleIcon className="mt-0.5 h-5 w-5 text-[#9b4b5d]" />}
+                  <div>
+                    <p className="text-sm font-semibold text-[#2f1b1d]">{item.title}</p>
+                    <p className="text-xs text-[#8a5c63]">{item.message}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card className="border border-[#ead8cc]">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-[#2f1b1d]">Ocupación real</h2>
+              <p className="text-sm text-[#8a5c63]">Tendencia diaria del último periodo.</p>
+            </div>
+          </div>
+          <div className="mt-4 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={occupancyChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ead8cc" />
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#8a5c63' }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: '#8a5c63' }} />
+                <Tooltip />
+                <Bar dataKey="ocupacion" fill="#9b4b5d" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card className="border border-[#ead8cc]">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-[#2f1b1d]">Ingresos reales</h2>
+              <p className="text-sm text-[#8a5c63]">Evolución de pagos de los últimos 7 días.</p>
+            </div>
+          </div>
+          <div className="mt-4 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={revenueChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ead8cc" />
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#8a5c63' }} />
+                <YAxis tick={{ fontSize: 12, fill: '#8a5c63' }} />
+                <Tooltip formatter={(value) => formatCurrency(value)} />
+                <Line type="monotone" dataKey="ingresos" stroke="#2f1b1d" strokeWidth={3} dot={{ r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <Card className="border border-[#ead8cc]">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-[#2f1b1d]">Pagos recientes</h2>
+              <p className="text-sm text-[#8a5c63]">Resumen básico del mes en curso.</p>
+            </div>
+          </div>
+          <div className="mt-4 space-y-2">
+            {paymentSummary.count > 0 ? (
+              Object.entries(paymentSummary.byMethod || {}).map(([method, amount]) => (
+                <div key={method} className="flex items-center justify-between rounded-lg bg-[#fdf8f4] px-3 py-2">
+                  <span className="text-sm capitalize text-[#2f1b1d]">{method}</span>
+                  <span className="text-sm font-semibold text-[#9b4b5d]">{formatCurrency(amount)}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-[#8a5c63]">Aún no hay pagos registrados en este periodo.</p>
+            )}
+          </div>
+        </Card>
+
+        <Card className="border border-[#ead8cc]">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-[#2f1b1d]">Huéspedes recientes</h2>
+              <p className="text-sm text-[#8a5c63]">Últimos registros cargados.</p>
+            </div>
+          </div>
+          <div className="mt-4 space-y-2">
+            {recentGuests.length > 0 ? recentGuests.map((guest) => (
+              <div key={guest.id} className="flex items-center justify-between rounded-lg bg-[#fdf8f4] px-3 py-2">
+                <div>
+                  <p className="text-sm font-semibold text-[#2f1b1d]">{guest.full_name || 'Huésped'}</p>
+                  <p className="text-xs text-[#8a5c63]">{guest.email || 'Sin correo'}</p>
+                </div>
+                <span className="rounded-full bg-[#ead8cc] px-2 py-1 text-xs text-[#7c3948]">{guest.phone || 'Sin teléfono'}</span>
+              </div>
+            )) : <p className="text-sm text-[#8a5c63]">No hay huéspedes recientes para mostrar.</p>}
+          </div>
+        </Card>
+      </div>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

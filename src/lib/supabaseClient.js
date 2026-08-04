@@ -7,15 +7,15 @@ const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 // Mensaje de error más descriptivo
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('❌ Error: Variables de entorno de Supabase no configuradas');
-  console.error('📝 Asegúrate de tener un archivo .env con:');
-  console.error('   VITE_SUPABASE_URL=tu-url');
-  console.error('   VITE_SUPABASE_ANON_KEY=tu-clave');
-  console.error('📂 El archivo .env debe estar en la raíz del proyecto');
+  console.error('Error: Variables de entorno de Supabase no configuradas');
+  console.error('Asegúrate de tener un archivo .env con:');
+  console.error('VITE_SUPABASE_URL=tu-url');
+  console.error('VITE_SUPABASE_ANON_KEY=tu-clave');
+  console.error('El archivo .env debe estar en la raíz del proyecto');
 
   if (import.meta.env.DEV) {
     throw new Error(
-      '⚠️ Faltan variables de entorno de Supabase.\n\n' +
+      'Faltan variables de entorno de Supabase.\n\n' +
       'Crea un archivo .env en la raíz del proyecto con:\n' +
       'VITE_SUPABASE_URL=tu-url\n' +
       'VITE_SUPABASE_ANON_KEY=tu-clave\n\n' +

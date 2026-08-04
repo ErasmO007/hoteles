@@ -8,6 +8,7 @@ import Rooms from './pages/Rooms';
 import Guests from './pages/Guests';
 import Reservations from './pages/Reservations';
 import Reports from './pages/Reports';
+import Payments from './pages/Payments';
 import AdminUsers from './pages/AdminUsers';
 import { ToastProvider } from './contexts/ToastContext';
 
@@ -64,6 +65,7 @@ const AppRoutes = () => {
           <Route path="rooms" element={<Rooms />} />
           <Route path="guests" element={<Guests />} />
           <Route path="reservations" element={<Reservations />} />
+          <Route path="payments" element={<Payments />} />
           <Route path="reports" element={<Reports />} />
           <Route
             path="admin/users"

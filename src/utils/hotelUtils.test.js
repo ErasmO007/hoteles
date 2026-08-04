@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterRooms, filterReservations, buildOccupancyCalendar, buildDailyAlerts, buildRoomPerformanceSummary } from './hotelUtils.js';
+import { filterRooms, filterReservations, buildOccupancyCalendar, buildDailyAlerts, buildRoomPerformanceSummary, buildPaymentSummary } from './hotelUtils.js';
 
 test('filterRooms works with search, status and type', () => {
   const rooms = [
@@ -85,4 +85,33 @@ test('buildRoomPerformanceSummary calculates occupancy, bookings and revenue', (
   assert.equal(result[0].bookings, 1);
   assert.equal(result[0].totalRevenue, 2400);
   assert.equal(result[0].occupancyRate, 6.45);
+});
+
+test('buildDailyAlerts includes pending payments and rooms requiring cleaning', () => {
+  const alerts = buildDailyAlerts({
+    occupancyRate: 30,
+    activeReservations: [],
+    availableRooms: 10,
+    totalRooms: 20,
+    pendingPayments: 2,
+    pendingCleaningRooms: 3,
+  });
+
+  assert.ok(alerts.some((alert) => alert.title === 'Pagos pendientes'));
+  assert.ok(alerts.some((alert) => alert.title === 'Habitaciones por limpiar'));
+});
+
+test('buildPaymentSummary summarizes payments by status and total amount', () => {
+  const payments = [
+    { amount: 1200, status: 'completed' },
+    { amount: 800, status: 'pending' },
+    { amount: 500, status: 'completed' },
+  ];
+
+  const summary = buildPaymentSummary(payments);
+
+  assert.equal(summary.total, 2500);
+  assert.equal(summary.completed, 2);
+  assert.equal(summary.pending, 1);
+  assert.equal(summary.count, 3);
 });
