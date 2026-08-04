@@ -11,6 +11,10 @@ const Layout = () => {
     setSidebarOpen((value) => !value);
   };
 
+  const handleSidebarClose = () => {
+    setSidebarOpen(false);
+  };
+
   const handleCollapseToggle = () => {
     setSidebarCollapsed((value) => !value);
   };
@@ -19,11 +23,11 @@ const Layout = () => {
     <div className="min-h-screen bg-[#f6efe9]">
       <Sidebar
         isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
+        onClose={handleSidebarClose}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={handleCollapseToggle}
       />
-      <div className={`min-h-screen transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
+      <div className="min-h-screen transition-all duration-300">
         <Header onMenuToggle={handleMenuToggle} />
         <main className="px-4 py-4 sm:px-6 md:px-8">
           <div className="mx-auto max-w-7xl">

@@ -20,7 +20,12 @@ const Header = ({ onMenuToggle }) => {
     <header className="sticky top-0 z-40 border-b border-[#ead8cc] bg-[#fdf8f4]/95 backdrop-blur">
       <div className="flex flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={onMenuToggle} className="rounded-lg p-2 text-[#7c3948] transition-colors hover:bg-[#f3e4db] lg:hidden">
+          <button
+            type="button"
+            onClick={onMenuToggle}
+            aria-label="Abrir menú"
+            className="rounded-lg p-2 text-[#7c3948] transition-colors hover:bg-[#f3e4db] lg:hidden"
+          >
             <Bars3Icon className="h-5 w-5" />
           </button>
           <div className="flex-1 lg:min-w-[260px] lg:max-w-md">
