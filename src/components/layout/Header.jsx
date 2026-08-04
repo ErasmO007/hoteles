@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { BellIcon, ArrowRightOnRectangleIcon, MagnifyingGlassIcon, Bars3Icon } from '@heroicons/react/24/outline';
@@ -6,6 +6,12 @@ import { BellIcon, ArrowRightOnRectangleIcon, MagnifyingGlassIcon, Bars3Icon } f
 const Header = ({ onMenuToggle }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const notifications = [
+    { id: 1, title: 'Check-in pendiente', text: 'Hay 2 huéspedes esperando ingreso hoy.' },
+    { id: 2, title: 'Reserva confirmada', text: 'La reserva de María López fue aprobada.' },
+  ];
 
   const handleLogout = async () => {
     try {
@@ -41,10 +47,40 @@ const Header = ({ onMenuToggle }) => {
         </div>
 
         <div className="flex items-center justify-between gap-3 sm:justify-end">
-          <button className="relative rounded-lg p-2 text-[#7c3948] transition-all hover:bg-[#f3e4db] hover:text-[#5b3138]">
-            <BellIcon className="h-5 w-5" />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowNotifications((value) => !value)}
+              className="relative rounded-lg p-2 text-[#7c3948] transition-all hover:bg-[#f3e4db] hover:text-[#5b3138]"
+              aria-label="Mostrar notificaciones"
+            >
+              <BellIcon className="h-5 w-5" />
+              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+            </button>
+
+            {showNotifications && (
+              <div className="absolute right-0 z-50 mt-2 w-72 rounded-xl border border-[#ead8cc] bg-white p-3 shadow-lg">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-[#2f1b1d]">Notificaciones</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowNotifications(false)}
+                    className="text-xs text-[#9b4b5d]"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {notifications.map((item) => (
+                    <div key={item.id} className="rounded-lg bg-[#fdf8f4] p-2">
+                      <p className="text-sm font-medium text-[#2f1b1d]">{item.title}</p>
+                      <p className="text-xs text-[#8a5c63]">{item.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="flex items-center gap-3 border-l border-[#ead8cc] pl-3">
             <div className="hidden text-right sm:block">
