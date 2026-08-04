@@ -27,7 +27,7 @@ const Layout = () => {
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={handleCollapseToggle}
       />
-      <div className="min-h-screen transition-all duration-300">
+      <div className={`min-h-screen transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'}`}>
         <Header onMenuToggle={handleMenuToggle} />
         <main className="px-4 py-4 sm:px-6 md:px-8">
           <div className="mx-auto max-w-7xl">
