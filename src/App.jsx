@@ -11,9 +11,10 @@ import Reports from './pages/Reports';
 import Payments from './pages/Payments';
 import AdminUsers from './pages/AdminUsers';
 import { ToastProvider } from './contexts/ToastContext';
+import { hasPermission, hasRoleAccess } from './utils/roles';
 
 // Componente de protección de rutas
-const ProtectedRoute = ({ children, requiredRole }) => {
+const ProtectedRoute = ({ children, requiredRole, permission }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -31,17 +32,12 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (requiredRole) {
-    const userRole = user.user_metadata?.role || 'receptionist';
-    const roles = {
-      admin: ['admin'],
-      manager: ['admin', 'manager'],
-      receptionist: ['admin', 'manager', 'receptionist'],
-    };
+  if (requiredRole && !hasRoleAccess(user, requiredRole)) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
-    if (!roles[requiredRole]?.includes(userRole)) {
-      return <Navigate to="/dashboard" replace />;
-    }
+  if (permission && !hasPermission(user, permission)) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;
@@ -61,16 +57,16 @@ const AppRoutes = () => {
           }
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="rooms" element={<Rooms />} />
-          <Route path="guests" element={<Guests />} />
-          <Route path="reservations" element={<Reservations />} />
-          <Route path="payments" element={<Payments />} />
-          <Route path="reports" element={<Reports />} />
+          <Route path="dashboard" element={<ProtectedRoute permission="dashboard"><Dashboard /></ProtectedRoute>} />
+          <Route path="rooms" element={<ProtectedRoute permission="rooms"><Rooms /></ProtectedRoute>} />
+          <Route path="guests" element={<ProtectedRoute permission="guests"><Guests /></ProtectedRoute>} />
+          <Route path="reservations" element={<ProtectedRoute permission="reservations"><Reservations /></ProtectedRoute>} />
+          <Route path="payments" element={<ProtectedRoute permission="payments"><Payments /></ProtectedRoute>} />
+          <Route path="reports" element={<ProtectedRoute permission="reports"><Reports /></ProtectedRoute>} />
           <Route
             path="admin/users"
             element={
-              <ProtectedRoute requiredRole="admin">
+              <ProtectedRoute permission="manageUsers" requiredRole="admin">
                 <AdminUsers />
               </ProtectedRoute>
             }

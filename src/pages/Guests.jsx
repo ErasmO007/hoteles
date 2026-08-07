@@ -4,6 +4,8 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Modal from '../components/common/Modal';
+import { validateGuestForm } from '../utils/validators';
+import { hasPermission } from '../utils/roles';
 
 const Guests = () => {
   const [guests, setGuests] = useState([]);
@@ -20,8 +22,10 @@ const Guests = () => {
     document_number: '',
     nationality: '',
   });
+  const [formErrors, setFormErrors] = useState({});
 
   const guestRepo = new GuestRepository();
+  const canManageGuests = hasPermission(user, 'guests');
 
   useEffect(() => {
     loadGuests();
@@ -40,6 +44,17 @@ const Guests = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!canManageGuests) {
+      alert('No tienes permisos para gestionar huéspedes');
+      return;
+    }
+    const errors = validateGuestForm(formData);
+    setFormErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+
     try {
       if (editingGuest) {
         await guestRepo.update(editingGuest.id, formData);
@@ -56,6 +71,11 @@ const Guests = () => {
   };
 
   const handleDelete = async (id) => {
+    if (!canManageGuests) {
+      alert('No tienes permisos para eliminar huéspedes');
+      return;
+    }
+
     if (window.confirm('¿Estás seguro de eliminar este huésped?')) {
       try {
         await guestRepo.delete(id);
@@ -67,6 +87,11 @@ const Guests = () => {
   };
 
   const handleEdit = (guest) => {
+    if (!canManageGuests) {
+      alert('No tienes permisos para editar huéspedes');
+      return;
+    }
+
     setEditingGuest(guest);
     setFormData(guest);
     setIsModalOpen(true);
@@ -74,6 +99,7 @@ const Guests = () => {
 
   const resetForm = () => {
     setEditingGuest(null);
+    setFormErrors({});
     setFormData({
       full_name: '',
       email: '',
@@ -108,9 +134,11 @@ const Guests = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-800">Huéspedes</h1>
-        <Button onClick={() => setIsModalOpen(true)}>
-          + Nuevo Huésped
-        </Button>
+        {canManageGuests && (
+          <Button onClick={() => setIsModalOpen(true)}>
+            + Nuevo Huésped
+          </Button>
+        )}
       </div>
 
       {/* Buscador */}
@@ -183,22 +211,24 @@ const Guests = () => {
                       <div className="text-sm text-gray-600">{guest.nationality || '-'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEdit(guest)}
-                        >
-                          Editar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => handleDelete(guest.id)}
-                        >
-                          Eliminar
-                        </Button>
-                      </div>
+                      {canManageGuests && (
+                        <div className="flex space-x-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEdit(guest)}
+                          >
+                            Editar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => handleDelete(guest.id)}
+                          >
+                            Eliminar
+                          </Button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -243,7 +273,11 @@ const Guests = () => {
           <Input
             label="Nombre Completo"
             value={formData.full_name}
-            onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, full_name: e.target.value });
+              setFormErrors((prev) => ({ ...prev, full_name: '' }));
+            }}
+            error={formErrors.full_name}
             required
           />
           <div className="grid grid-cols-2 gap-4">
@@ -251,13 +285,21 @@ const Guests = () => {
               label="Email"
               type="email"
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, email: e.target.value });
+                setFormErrors((prev) => ({ ...prev, email: '' }));
+              }}
+              error={formErrors.email}
               required
             />
             <Input
               label="Teléfono"
               value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, phone: e.target.value });
+                setFormErrors((prev) => ({ ...prev, phone: '' }));
+              }}
+              error={formErrors.phone}
               required
             />
           </div>

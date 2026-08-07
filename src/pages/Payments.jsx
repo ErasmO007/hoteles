@@ -7,10 +7,12 @@ import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Modal from '../components/common/Modal';
 import { formatCurrency, getStatusLabel, buildPaymentSummary } from '../utils/hotelUtils';
+import { hasPermission } from '../utils/roles';
 import { useToast } from '../contexts/ToastContext';
 
 const Payments = () => {
   const { user } = useAuth();
+  const canManagePayments = hasPermission(user, 'payments');
   const { addToast } = useToast();
   const [payments, setPayments] = useState([]);
   const [reservations, setReservations] = useState([]);
@@ -70,6 +72,11 @@ const Payments = () => {
   };
 
   const handleStatusChange = async (paymentId, status) => {
+    if (!canManagePayments) {
+      setError('No tienes permisos para gestionar pagos');
+      return;
+    }
+
     try {
       await paymentRepo.update(paymentId, {
         status,
@@ -98,6 +105,10 @@ const Payments = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!canManagePayments) {
+      setError('No tienes permisos para registrar pagos');
+      return;
+    }
     setError('');
 
     try {
@@ -172,7 +183,9 @@ const Payments = () => {
           <h1 className="text-2xl font-bold text-gray-800">Administración de pagos</h1>
           <p className="text-gray-500">Registra pagos, revisa saldos pendientes y controla el estado de cuentas de cada reserva.</p>
         </div>
-        <Button onClick={handleOpenModal}>+ Nuevo pago</Button>
+        {canManagePayments && (
+          <Button onClick={handleOpenModal}>+ Nuevo pago</Button>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -284,7 +297,7 @@ const Payments = () => {
                       <div className="text-xs text-gray-500">{payment.created_at ? new Date(payment.created_at).toLocaleDateString('es-MX') : 'Sin fecha'}</div>
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {payment.status !== 'completed' && (
+                      {canManagePayments && payment.status !== 'completed' && (
                         <Button size="sm" variant="success" onClick={() => handleStatusChange(payment.id, 'completed')}>
                           Marcar pagado
                         </Button>

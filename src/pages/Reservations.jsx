@@ -9,6 +9,8 @@ import Input from '../components/common/Input';
 import Modal from '../components/common/Modal';
 import { formatCurrency, getStatusLabel, filterReservations } from '../utils/hotelUtils';
 import { useToast } from '../contexts/ToastContext';
+import { validateName } from '../utils/validators';
+import { hasPermission } from '../utils/roles';
 
 const Reservations = () => {
   const { user } = useAuth();
@@ -23,6 +25,7 @@ const Reservations = () => {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [formErrors, setFormErrors] = useState({});
   const [formData, setFormData] = useState({
     guest_id: '',
     room_id: '',
@@ -33,6 +36,7 @@ const Reservations = () => {
   });
 
   const reservationRepo = new ReservationRepository();
+  const canManageReservations = hasPermission(user, 'reservations');
   const guestRepo = new GuestRepository();
   const roomRepo = new RoomRepository();
 
@@ -101,6 +105,10 @@ const Reservations = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!canManageReservations) {
+      setError('No tienes permisos para gestionar reservaciones');
+      return;
+    }
     setError('');
     
     if (!user) {
@@ -109,25 +117,33 @@ const Reservations = () => {
     }
 
     try {
-      // Validar datos
+      const errors = {};
+
       if (!formData.guest_id) {
-        setError('Selecciona un huésped');
-        return;
+        errors.guest_id = 'Selecciona un huésped';
       }
       if (!formData.room_id) {
-        setError('Selecciona una habitación');
-        return;
+        errors.room_id = 'Selecciona una habitación';
       }
       if (!formData.check_in || !formData.check_out) {
-        setError('Selecciona las fechas de check-in y check-out');
-        return;
+        errors.dates = 'Selecciona las fechas de check-in y check-out';
       }
 
       const checkIn = new Date(formData.check_in);
       const checkOut = new Date(formData.check_out);
       
-      if (checkOut <= checkIn) {
-        setError('La fecha de check-out debe ser mayor a la de check-in');
+      if (formData.check_in && formData.check_out && checkOut <= checkIn) {
+        errors.dates = 'La fecha de check-out debe ser mayor a la de check-in';
+      }
+
+      const specialRequestsValidation = validateName(formData.special_requests || '');
+      if (formData.special_requests && !specialRequestsValidation.isValid) {
+        errors.special_requests = specialRequestsValidation.message;
+      }
+
+      setFormErrors(errors);
+      if (Object.keys(errors).length > 0) {
+        setError('Corrige los campos marcados para continuar');
         return;
       }
 
@@ -186,6 +202,11 @@ const Reservations = () => {
   };
 
   const handleCancel = async (id) => {
+    if (!canManageReservations) {
+      setError('No tienes permisos para cancelar reservaciones');
+      return;
+    }
+
     if (!window.confirm('¿Estás seguro de cancelar esta reservación?')) return;
     
     try {
@@ -201,6 +222,7 @@ const Reservations = () => {
   const resetForm = () => {
     setEditingReservation(null);
     setSelectedRoomPrice(0);
+    setFormErrors({});
     setFormData({
       guest_id: '',
       room_id: '',
@@ -213,6 +235,11 @@ const Reservations = () => {
   };
 
   const handleCreate = () => {
+    if (!canManageReservations) {
+      setError('No tienes permisos para crear reservaciones');
+      return;
+    }
+
     setEditingReservation(null);
     resetForm();
     setIsModalOpen(true);
@@ -244,9 +271,11 @@ const Reservations = () => {
           <h1 className="text-2xl font-bold text-gray-800">Reservaciones</h1>
           <p className="text-gray-500">Consulta rápida del estado de las reservas y ocupación del hotel</p>
         </div>
-        <Button onClick={handleCreate}>
-          + Nueva Reservación
-        </Button>
+        {canManageReservations && (
+          <Button onClick={handleCreate}>
+            + Nueva Reservación
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -440,7 +469,10 @@ const Reservations = () => {
             <label className="block text-sm font-medium text-gray-700">Huésped</label>
             <select
               value={formData.guest_id}
-              onChange={(e) => setFormData({ ...formData, guest_id: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, guest_id: e.target.value });
+                setFormErrors((prev) => ({ ...prev, guest_id: '' }));
+              }}
               className="mt-1 w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             >
@@ -451,13 +483,19 @@ const Reservations = () => {
                 </option>
               ))}
             </select>
+            {formErrors.guest_id && (
+              <p className="mt-1 text-sm text-[#a44d5d]">{formErrors.guest_id}</p>
+            )}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700">Habitación</label>
             <select
               value={formData.room_id}
-              onChange={handleRoomChange}
+              onChange={(e) => {
+                handleRoomChange(e);
+                setFormErrors((prev) => ({ ...prev, room_id: '' }));
+              }}
               className="mt-1 w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             >
@@ -468,6 +506,9 @@ const Reservations = () => {
                 </option>
               ))}
             </select>
+            {formErrors.room_id && (
+              <p className="mt-1 text-sm text-[#a44d5d]">{formErrors.room_id}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -475,7 +516,11 @@ const Reservations = () => {
               label="Fecha Check-in"
               type="date"
               value={formData.check_in}
-              onChange={(e) => setFormData({ ...formData, check_in: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, check_in: e.target.value });
+                setFormErrors((prev) => ({ ...prev, dates: '' }));
+              }}
+              error={formErrors.dates}
               required
               min={new Date().toISOString().split('T')[0]}
             />
@@ -483,7 +528,11 @@ const Reservations = () => {
               label="Fecha Check-out"
               type="date"
               value={formData.check_out}
-              onChange={(e) => setFormData({ ...formData, check_out: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, check_out: e.target.value });
+                setFormErrors((prev) => ({ ...prev, dates: '' }));
+              }}
+              error={formErrors.dates}
               required
               min={formData.check_in || new Date().toISOString().split('T')[0]}
             />
@@ -514,11 +563,17 @@ const Reservations = () => {
             <label className="block text-sm font-medium text-gray-700">Peticiones Especiales</label>
             <textarea
               value={formData.special_requests}
-              onChange={(e) => setFormData({ ...formData, special_requests: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, special_requests: e.target.value });
+                setFormErrors((prev) => ({ ...prev, special_requests: '' }));
+              }}
               rows="3"
               className="mt-1 w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               placeholder="Alguna petición especial..."
             />
+            {formErrors.special_requests && (
+              <p className="mt-1 text-sm text-[#a44d5d]">{formErrors.special_requests}</p>
+            )}
           </div>
         </form>
       </Modal>

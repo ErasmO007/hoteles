@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AuthService from '../services/AuthService';
+import { hasRoleAccess } from '../utils/roles';
 
 const AuthContext = createContext();
 
@@ -93,13 +94,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     hasRole: async (role) => {
       if (!user) return false;
-      const userRole = user.user_metadata?.role || 'receptionist';
-      const roles = {
-        admin: ['admin'],
-        manager: ['admin', 'manager'],
-        receptionist: ['admin', 'manager', 'receptionist'],
-      };
-      return roles[role]?.includes(userRole) || false;
+      return hasRoleAccess(user, role);
     },
   };
 

@@ -7,6 +7,8 @@ import Input from '../components/common/Input';
 import Modal from '../components/common/Modal';
 import { formatCurrency, getStatusLabel, filterRooms } from '../utils/hotelUtils';
 import { useToast } from '../contexts/ToastContext';
+import { validateName } from '../utils/validators';
+import { hasPermission } from '../utils/roles';
 
 const Rooms = () => {
   const { user } = useAuth();
@@ -20,6 +22,7 @@ const Rooms = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [selectedRoomId, setSelectedRoomId] = useState(null);
+  const [formErrors, setFormErrors] = useState({});
   const [formData, setFormData] = useState({
     number: '',
     type: 'single',
@@ -31,6 +34,8 @@ const Rooms = () => {
   });
 
   const roomRepo = new RoomRepository();
+  const canManageRooms = hasPermission(user, 'rooms');
+  const canManageRoomInventory = hasPermission(user, 'manageSettings');
 
   useEffect(() => {
     if (user) {
@@ -52,6 +57,10 @@ const Rooms = () => {
   };
 
   const handleSubmit = async (e) => {
+    if (!canManageRoomInventory) {
+      setError('No tienes permisos para modificar habitaciones');
+      return;
+    }
     e.preventDefault();
     setError('');
     
@@ -62,17 +71,28 @@ const Rooms = () => {
     }
 
     try {
-      // Validar datos
+      const errors = {};
+
       if (!formData.number.trim()) {
-        setError('El número de habitación es requerido');
-        return;
+        errors.number = 'El número de habitación es requerido';
       }
+
       if (!formData.price || parseFloat(formData.price) <= 0) {
-        setError('El precio debe ser mayor a 0');
-        return;
+        errors.price = 'El precio debe ser mayor a 0';
       }
+
       if (!formData.capacity || parseInt(formData.capacity) <= 0) {
-        setError('La capacidad debe ser mayor a 0');
+        errors.capacity = 'La capacidad debe ser mayor a 0';
+      }
+
+      const nameValidation = validateName(formData.description || '');
+      if (formData.description && !nameValidation.isValid) {
+        errors.description = nameValidation.message;
+      }
+
+      setFormErrors(errors);
+      if (Object.keys(errors).length > 0) {
+        setError('Corrige los campos marcados para continuar');
         return;
       }
 
@@ -112,6 +132,11 @@ const Rooms = () => {
   };
 
   const handleDelete = async (id) => {
+    if (!canManageRoomInventory) {
+      setError('No tienes permisos para eliminar habitaciones');
+      return;
+    }
+
     if (!window.confirm('¿Estás seguro de eliminar esta habitación?')) return;
     
     try {
@@ -125,6 +150,11 @@ const Rooms = () => {
   };
 
   const handleEdit = (room) => {
+    if (!canManageRoomInventory) {
+      setError('No tienes permisos para editar habitaciones');
+      return;
+    }
+
     setEditingRoom(room);
     setFormData({
       number: room.number || '',
@@ -140,6 +170,11 @@ const Rooms = () => {
   };
 
   const handleCreate = () => {
+    if (!canManageRoomInventory) {
+      setError('No tienes permisos para crear habitaciones');
+      return;
+    }
+
     setEditingRoom(null);
     resetForm();
     setIsModalOpen(true);
@@ -148,6 +183,7 @@ const Rooms = () => {
 
   const resetForm = () => {
     setEditingRoom(null);
+    setFormErrors({});
     setFormData({
       number: '',
       type: 'single',
@@ -210,9 +246,11 @@ const Rooms = () => {
           <h1 className="text-2xl font-bold text-gray-800">Habitaciones</h1>
           <p className="text-gray-500">Control rápido de disponibilidad y estado de cada habitación</p>
         </div>
-        <Button onClick={handleCreate}>
-          + Nueva Habitación
-        </Button>
+        {canManageRoomInventory && (
+          <Button onClick={handleCreate}>
+            + Nueva Habitación
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -301,14 +339,16 @@ const Rooms = () => {
               title={`Habitación ${room.number}`}
               className="border border-gray-100 hover:shadow-md transition-all"
               actions={
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => handleEdit(room)}>
-                    Editar
-                  </Button>
-                  <Button size="sm" variant="danger" onClick={() => handleDelete(room.id)}>
-                    Eliminar
-                  </Button>
-                </div>
+                canManageRoomInventory ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => handleEdit(room)}>
+                      Editar
+                    </Button>
+                    <Button size="sm" variant="danger" onClick={() => handleDelete(room.id)}>
+                      Eliminar
+                    </Button>
+                  </div>
+                ) : null
               }
             >
               <div className="space-y-2">
@@ -346,12 +386,14 @@ const Rooms = () => {
         ) : (
           <div className="col-span-full text-center py-12">
             <p className="text-gray-500">No hay habitaciones que coincidan con los filtros</p>
-            <button 
-              onClick={handleCreate}
-              className="mt-4 text-blue-600 hover:text-blue-800 font-medium"
-            >
-              Crear la primera habitación
-            </button>
+            {canManageRoomInventory && (
+              <button 
+                onClick={handleCreate}
+                className="mt-4 text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Crear la primera habitación
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -416,7 +458,11 @@ const Rooms = () => {
           <Input
             label="Número de Habitación"
             value={formData.number}
-            onChange={(e) => setFormData({ ...formData, number: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, number: e.target.value });
+              setFormErrors((prev) => ({ ...prev, number: '' }));
+            }}
+            error={formErrors.number}
             placeholder="Ej: 101"
             required
           />
@@ -442,7 +488,11 @@ const Rooms = () => {
               label="Precio (MXN)"
               type="number"
               value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, price: e.target.value });
+                setFormErrors((prev) => ({ ...prev, price: '' }));
+              }}
+              error={formErrors.price}
               placeholder="0.00"
               min="0"
               step="0.01"
@@ -455,7 +505,11 @@ const Rooms = () => {
               label="Capacidad"
               type="number"
               value={formData.capacity}
-              onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 1 })}
+              onChange={(e) => {
+                setFormData({ ...formData, capacity: parseInt(e.target.value) || 1 });
+                setFormErrors((prev) => ({ ...prev, capacity: '' }));
+              }}
+              error={formErrors.capacity}
               min="1"
               required
             />
@@ -491,11 +545,17 @@ const Rooms = () => {
             </label>
             <textarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, description: e.target.value });
+                setFormErrors((prev) => ({ ...prev, description: '' }));
+              }}
               rows="2"
               className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               placeholder="Descripción de la habitación..."
             />
+            {formErrors.description && (
+              <p className="mt-1 text-sm text-[#a44d5d]">{formErrors.description}</p>
+            )}
           </div>
         </form>
       </Modal>

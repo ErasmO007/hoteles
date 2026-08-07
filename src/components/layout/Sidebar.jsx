@@ -3,10 +3,10 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { XMarkIcon, HomeIcon, BuildingOfficeIcon, UserGroupIcon, CalendarIcon, ChartBarIcon, Cog6ToothIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import { HomeIcon as HomeIconSolid, BuildingOfficeIcon as BuildingOfficeIconSolid, UserGroupIcon as UserGroupIconSolid, CalendarIcon as CalendarIconSolid, ChartBarIcon as ChartBarIconSolid, CurrencyDollarIcon as CurrencyDollarIconSolid } from '@heroicons/react/24/solid';
+import { hasPermission, getUserRole } from '../../utils/roles';
 
 const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse, secretMode = false }) => {
   const { user } = useAuth();
-  const userRole = user?.user_metadata?.role || 'receptionist';
 
   // Definir menús según rol
   const menuItems = [
@@ -15,54 +15,53 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse, secretMode = 
       label: 'Dashboard',
       icon: HomeIcon,
       iconSolid: HomeIconSolid,
-      roles: ['admin', 'manager', 'receptionist'],
+      permission: 'dashboard',
     },
     {
       to: '/rooms',
       label: 'Habitaciones',
       icon: BuildingOfficeIcon,
       iconSolid: BuildingOfficeIconSolid,
-      roles: ['admin', 'manager', 'receptionist'],
+      permission: 'rooms',
     },
     {
       to: '/guests',
       label: 'Huéspedes',
       icon: UserGroupIcon,
       iconSolid: UserGroupIconSolid,
-      roles: ['admin', 'manager', 'receptionist'],
+      permission: 'guests',
     },
     {
       to: '/reservations',
       label: 'Reservaciones',
       icon: CalendarIcon,
       iconSolid: CalendarIconSolid,
-      roles: ['admin', 'manager', 'receptionist'],
+      permission: 'reservations',
     },
     {
       to: '/payments',
       label: 'Pagos',
       icon: CurrencyDollarIcon,
       iconSolid: CurrencyDollarIconSolid,
-      roles: ['admin', 'manager', 'receptionist'],
+      permission: 'payments',
     },
     {
       to: '/reports',
       label: 'Reportes',
       icon: ChartBarIcon,
       iconSolid: ChartBarIconSolid,
-      roles: ['admin', 'manager'],
+      permission: 'reports',
     },
     {
       to: '/admin/users',
       label: 'Administrar Usuarios',
       icon: Cog6ToothIcon,
       iconSolid: Cog6ToothIcon,
-      roles: ['admin'],
+      permission: 'manageUsers',
     },
   ];
 
-  // Filtrar menús según rol
-  const filteredMenu = menuItems.filter(item => item.roles.includes(userRole));
+  const filteredMenu = menuItems.filter(item => hasPermission(user, item.permission));
 
   const sidebarWidthClass = isCollapsed ? 'lg:w-20' : 'lg:w-64';
 

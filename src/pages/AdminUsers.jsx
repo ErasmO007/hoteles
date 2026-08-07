@@ -6,9 +6,12 @@ import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Modal from '../components/common/Modal';
 import supabase from '../lib/supabase';
+import { validateUserForm } from '../utils/validators';
+import { hasPermission } from '../utils/roles';
 
 const AdminUsers = () => {
   const { user } = useAuth();
+  const canManageUsers = hasPermission(user, 'manageUsers');
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +32,7 @@ const AdminUsers = () => {
     role: 'receptionist',
     phone: '',
   });
+  const [formErrors, setFormErrors] = useState({});
 
   // Verificar rol admin
   useEffect(() => {
@@ -92,18 +96,20 @@ const AdminUsers = () => {
   // ============================================
   const handleCreateUser = async (e) => {
     e.preventDefault();
+    if (!canManageUsers) {
+      setError('No tienes permisos para crear usuarios');
+      return;
+    }
     setError('');
     setSuccess('');
     setLoadingAction(true);
 
     try {
-      // Validar datos
-      if (!newUserData.email || !newUserData.password || !newUserData.full_name) {
-        throw new Error('Email, contraseña y nombre son obligatorios');
-      }
+      const errors = validateUserForm(newUserData);
+      setFormErrors(errors);
 
-      if (newUserData.password.length < 6) {
-        throw new Error('La contraseña debe tener al menos 6 caracteres');
+      if (Object.keys(errors).length > 0) {
+        return;
       }
 
       // Obtener la URL de la Edge Function
@@ -154,6 +160,11 @@ const AdminUsers = () => {
   // ACTUALIZAR ROL
   // ============================================
   const handleUpdateRole = async () => {
+    if (!canManageUsers) {
+      setError('No tienes permisos para actualizar roles');
+      return;
+    }
+
     if (!editingUser) return;
     
     setError('');
@@ -188,6 +199,11 @@ const AdminUsers = () => {
   // ELIMINAR USUARIO
   // ============================================
   const handleDeleteUser = async (userId, userEmail) => {
+    if (!canManageUsers) {
+      setError('No tienes permisos para eliminar usuarios');
+      return;
+    }
+
     if (!window.confirm(`¿Estás seguro de eliminar al usuario ${userEmail}?`)) return;
     if (!window.confirm('⚠️ Esta acción no se puede deshacer. ¿Continuar?')) return;
 
@@ -218,6 +234,7 @@ const AdminUsers = () => {
   // FUNCIONES DE UTILIDAD
   // ============================================
   const resetNewUserForm = () => {
+    setFormErrors({});
     setNewUserData({
       email: '',
       password: '',

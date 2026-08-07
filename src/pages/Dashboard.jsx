@@ -10,6 +10,7 @@ import ReservationRepository from '../repositories/ReservationRepository';
 import GuestRepository from '../repositories/GuestRepository';
 import PaymentRepository from '../repositories/PaymentRepository';
 import { formatCurrency, buildDailyAlerts, buildOccupancyCalendar } from '../utils/hotelUtils';
+import { hasPermission } from '../utils/roles';
 import { 
   HomeIcon, 
   UserGroupIcon, 
@@ -186,6 +187,10 @@ const Dashboard = () => {
   // ============================================
   const handleCheckIn = async (e) => {
     e.preventDefault();
+    if (!canManageReservations) {
+      setError('No tienes permisos para crear reservaciones');
+      return;
+    }
     setError('');
     setSuccess('');
     setLoadingAction(true);
@@ -257,6 +262,10 @@ const Dashboard = () => {
   // ============================================
   const handleCheckOut = async (e) => {
     e.preventDefault();
+    if (!canManagePayments) {
+      setError('No tienes permisos para gestionar pagos');
+      return;
+    }
     setError('');
     setSuccess('');
     setLoadingAction(true);
@@ -316,6 +325,10 @@ const Dashboard = () => {
   // ============================================
   const handleNewRoom = async (e) => {
     e.preventDefault();
+    if (!canManageRooms) {
+      setError('No tienes permisos para crear habitaciones');
+      return;
+    }
     setError('');
     setSuccess('');
     setLoadingAction(true);
@@ -392,6 +405,10 @@ const Dashboard = () => {
   // ============================================
   const goToRooms = () => navigate('/rooms');
   const goToReports = () => navigate('/reports');
+  const canManagePayments = hasPermission(user, 'payments');
+  const canViewReports = hasPermission(user, 'reports');
+  const canManageReservations = hasPermission(user, 'reservations');
+  const canManageRooms = hasPermission(user, 'manageSettings');
 
   const goToPreviousMonth = () => {
     const nextMonth = new Date(calendarMonth);
@@ -516,11 +533,13 @@ const Dashboard = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-[#ead8cc] bg-white p-4 shadow-sm">
-          <p className="text-sm text-[#8a5c63]">Pagos pendientes</p>
-          <p className="mt-2 text-2xl font-semibold text-[#2f1b1d]">{pendingPaymentsCount}</p>
-          <p className="mt-1 text-xs text-[#9b4b5d]">Vinculados a reservas</p>
-        </div>
+        {canManagePayments && (
+          <div className="rounded-2xl border border-[#ead8cc] bg-white p-4 shadow-sm">
+            <p className="text-sm text-[#8a5c63]">Pagos pendientes</p>
+            <p className="mt-2 text-2xl font-semibold text-[#2f1b1d]">{pendingPaymentsCount}</p>
+            <p className="mt-1 text-xs text-[#9b4b5d]">Vinculados a reservas</p>
+          </div>
+        )}
         <div className="rounded-2xl border border-[#ead8cc] bg-white p-4 shadow-sm">
           <p className="text-sm text-[#8a5c63]">Por limpiar</p>
           <p className="mt-2 text-2xl font-semibold text-[#2f1b1d]">{pendingCleaningRooms}</p>
@@ -655,12 +674,24 @@ const Dashboard = () => {
           <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
           <p className="text-gray-500">Bienvenido, {user?.user_metadata?.full_name || 'Usuario'}</p>
         </div>
-        <button 
-          onClick={() => setShowCheckInModal(true)}
-          className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/40"
-        >
-          Nueva Reservación
-        </button>
+        <div className="flex gap-2">
+          {canManageReservations && (
+            <button 
+              onClick={() => setShowCheckInModal(true)}
+            className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/40"
+          >
+            Nueva Reservación
+            </button>
+          )}
+          {canViewReports && (
+            <button
+              onClick={goToReports}
+              className="px-4 py-2.5 border border-[#9b4b5d] text-[#9b4b5d] font-medium rounded-xl hover:bg-[#f8ece9] transition-all"
+            >
+              Ver Reportes
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Mensajes de error y éxito */}
@@ -868,41 +899,45 @@ const Dashboard = () => {
       {/* ============================================ */}
       <Card title="Acciones Rápidas" className="border border-gray-100">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {/* BOTÓN CHECK-IN */}
-          <button
-            onClick={() => setShowCheckInModal(true)}
-            className="p-4 bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 rounded-xl text-center transition-all hover:shadow-md"
-          >
-            <div className="text-3xl mb-1">🏨</div>
-            <div className="text-sm font-medium text-green-700">Check-in</div>
-          </button>
+          {canManageReservations && (
+            <button
+              onClick={() => setShowCheckInModal(true)}
+              className="p-4 bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 rounded-xl text-center transition-all hover:shadow-md"
+            >
+              <div className="text-3xl mb-1">🏨</div>
+              <div className="text-sm font-medium text-green-700">Check-in</div>
+            </button>
+          )}
 
-          {/* BOTÓN CHECK-OUT */}
-          <button
-            onClick={() => setShowCheckOutModal(true)}
-            className="p-4 bg-gradient-to-br from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 rounded-xl text-center transition-all hover:shadow-md"
-          >
-            <div className="text-3xl mb-1">🚪</div>
-            <div className="text-sm font-medium text-red-700">Check-out</div>
-          </button>
+          {canManagePayments && (
+            <button
+              onClick={() => setShowCheckOutModal(true)}
+              className="p-4 bg-gradient-to-br from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 rounded-xl text-center transition-all hover:shadow-md"
+            >
+              <div className="text-3xl mb-1">🚪</div>
+              <div className="text-sm font-medium text-red-700">Check-out</div>
+            </button>
+          )}
 
-          {/* BOTÓN NUEVA HABITACIÓN */}
-          <button
-            onClick={() => setShowNewRoomModal(true)}
-            className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-xl text-center transition-all hover:shadow-md"
-          >
-            <div className="text-3xl mb-1">🛏️</div>
-            <div className="text-sm font-medium text-blue-700">Nueva Habitación</div>
-          </button>
+          {canManageRooms && (
+            <button
+              onClick={() => setShowNewRoomModal(true)}
+              className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-xl text-center transition-all hover:shadow-md"
+            >
+              <div className="text-3xl mb-1">🛏️</div>
+              <div className="text-sm font-medium text-blue-700">Nueva Habitación</div>
+            </button>
+          )}
 
-          {/* BOTÓN REPORTES */}
-          <button
-            onClick={goToReports}
-            className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 rounded-xl text-center transition-all hover:shadow-md"
-          >
-            <div className="text-3xl mb-1">📊</div>
-            <div className="text-sm font-medium text-purple-700">Reportes</div>
-          </button>
+          {canViewReports && (
+            <button
+              onClick={goToReports}
+              className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 rounded-xl text-center transition-all hover:shadow-md"
+            >
+              <div className="text-3xl mb-1">📊</div>
+              <div className="text-sm font-medium text-purple-700">Reportes</div>
+            </button>
+          )}
         </div>
       </Card>
 
